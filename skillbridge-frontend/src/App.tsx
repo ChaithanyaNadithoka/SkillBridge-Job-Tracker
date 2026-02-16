@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Alert, Snackbar } from '@mui/material';
 import ProtectedRoute from './components/ProtectedRoute';
+import HomePage from './pages/HomePage';
 import RegisterPage from './pages/RegisterPage';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
@@ -14,7 +15,7 @@ const App: React.FC = () => {
     const [snackbarMessage, setSnackbarMessage] = React.useState('');
     const [snackbarSeverity, setSnackbarSeverity] = React.useState<'success' | 'error'>('success');
 
-    const isLoggedIn = !!authService.getToken();
+    const isLoggedIn = !!authService.getCredentials();
 
     const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') => {
         setSnackbarMessage(message);
@@ -30,6 +31,7 @@ const App: React.FC = () => {
         <Router>
             <div className="App">
                 <Routes>
+                    <Route path="/" element={isLoggedIn ? <Navigate to="/dashboard" /> : <HomePage />} />
                     <Route path="/register" element={<RegisterPage onSuccess={() => showSnackbar('Registration successful')} />} />
                     <Route path="/login" element={<LoginPage onSuccess={() => showSnackbar('Login successful')} />} />
                     
@@ -39,8 +41,6 @@ const App: React.FC = () => {
                         <Route path="/applications/new" element={<ApplicationFormPage />} />
                         <Route path="/applications/:id/edit" element={<ApplicationFormPage />} />
                     </Route>
-
-                    <Route path="/" element={isLoggedIn ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
                 </Routes>
 
                 <Snackbar
