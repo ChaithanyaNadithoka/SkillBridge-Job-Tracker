@@ -1,0 +1,29 @@
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS job_applications (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    company_name VARCHAR(150) NOT NULL,
+    job_role VARCHAR(150) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    applied_date DATE NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    user_id BIGINT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS interview_rounds (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    round_type VARCHAR(50) NOT NULL,
+    interview_date DATE NOT NULL,
+    notes TEXT,
+    result VARCHAR(50) NOT NULL,
+    job_application_id BIGINT NOT NULL,
+    FOREIGN KEY (job_application_id) REFERENCES job_applications(id)
+);

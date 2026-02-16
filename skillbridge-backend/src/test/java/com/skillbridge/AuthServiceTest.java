@@ -44,7 +44,8 @@ public class AuthServiceTest {
         when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
         when(userRepository.save(any(User.class))).thenReturn(new User());
         
-        // Test should pass without exception
+        // Call the actual method being tested
+        authService.register(request);
     }
     
     @Test
