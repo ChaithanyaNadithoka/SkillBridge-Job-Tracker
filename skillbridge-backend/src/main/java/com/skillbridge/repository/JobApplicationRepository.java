@@ -11,5 +11,5 @@ import org.springframework.stereotype.Repository;
 public interface JobApplicationRepository extends JpaRepository<JobApplication, Long> {
     Page<JobApplication> findByUserOrderByAppliedDateDesc(User user, Pageable pageable);
     long countByUser(User user);
-    long countByUserAndStatus(User user, String status);
+    long countByUserAndStatus(User user, com.skillbridge.entity.ApplicationStatus status);
 }

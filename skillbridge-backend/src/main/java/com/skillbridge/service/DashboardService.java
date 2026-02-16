@@ -25,10 +25,10 @@ public class DashboardService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
         long total = jobApplicationRepository.countByUser(user);
-        long applied = jobApplicationRepository.countByUserAndStatus(user, ApplicationStatus.APPLIED.toString());
-        long interviewing = jobApplicationRepository.countByUserAndStatus(user, ApplicationStatus.INTERVIEWING.toString());
-        long offered = jobApplicationRepository.countByUserAndStatus(user, ApplicationStatus.OFFERED.toString());
-        long rejected = jobApplicationRepository.countByUserAndStatus(user, ApplicationStatus.REJECTED.toString());
+        long applied = jobApplicationRepository.countByUserAndStatus(user, ApplicationStatus.APPLIED);
+        long interviewing = jobApplicationRepository.countByUserAndStatus(user, ApplicationStatus.INTERVIEWING);
+        long offered = jobApplicationRepository.countByUserAndStatus(user, ApplicationStatus.OFFERED);
+        long rejected = jobApplicationRepository.countByUserAndStatus(user, ApplicationStatus.REJECTED);
         
         return DashboardResponse.builder()
                 .totalApplications(total)
