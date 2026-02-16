@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import com.skillbridge.repository.UserRepository;
+import com.skillbridge.exception.ResourceNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,9 +22,11 @@ import java.util.List;
 public class InterviewRoundController {
     
     private final InterviewRoundService interviewRoundService;
-    
-    public InterviewRoundController(InterviewRoundService interviewRoundService) {
+    private final UserRepository userRepository;
+
+    public InterviewRoundController(InterviewRoundService interviewRoundService, UserRepository userRepository) {
         this.interviewRoundService = interviewRoundService;
+        this.userRepository = userRepository;
     }
     
     @PostMapping("/application/{applicationId}")
@@ -60,6 +64,9 @@ public class InterviewRoundController {
     
     private Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return (Long) authentication.getDetails();
+        String email = authentication.getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email))
+                .getId();
     }
 }

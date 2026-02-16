@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import com.skillbridge.repository.UserRepository;
+import com.skillbridge.exception.ResourceNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -20,9 +22,11 @@ import org.springframework.web.bind.annotation.*;
 public class JobApplicationController {
     
     private final JobApplicationService jobApplicationService;
-    
-    public JobApplicationController(JobApplicationService jobApplicationService) {
+    private final UserRepository userRepository;
+
+    public JobApplicationController(JobApplicationService jobApplicationService, UserRepository userRepository) {
         this.jobApplicationService = jobApplicationService;
+        this.userRepository = userRepository;
     }
     
     @PostMapping
@@ -65,6 +69,9 @@ public class JobApplicationController {
     
     private Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return (Long) authentication.getDetails();
+        String email = authentication.getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email))
+                .getId();
     }
 }
