@@ -11,9 +11,15 @@ const axiosInstance: AxiosInstance = axios.create({
 // Add request interceptor to include HTTP Basic Auth credentials
 axiosInstance.interceptors.request.use(
     (config) => {
+        // Don't attach Authorization header to auth endpoints (login/register)
+        const url = config.url || '';
+        if (url.includes('/auth/login') || url.includes('/auth/register')) {
+            return config;
+        }
+
         const credentials = localStorage.getItem('credentials');
         if (credentials) {
-            // Add Authorization header with Basic Auth
+            // Add Authorization header with Basic Auth for protected endpoints
             config.headers.Authorization = `Basic ${credentials}`;
         }
         return config;
