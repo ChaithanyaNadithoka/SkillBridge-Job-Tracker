@@ -1,4 +1,4 @@
-package test.java.com.skillbridge;
+package com.skillbridge;
 
 import com.skillbridge.entity.JobApplication;
 import com.skillbridge.entity.User;

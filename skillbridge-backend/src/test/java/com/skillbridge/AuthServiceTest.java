@@ -1,10 +1,11 @@
-package com.skillbridge.service;
+package com.skillbridge;
 
 import com.skillbridge.dto.RegisterRequest;
 import com.skillbridge.dto.LoginRequest;
 import com.skillbridge.entity.Role;
 import com.skillbridge.entity.User;
 import com.skillbridge.repository.UserRepository;
+import com.skillbridge.service.AuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
