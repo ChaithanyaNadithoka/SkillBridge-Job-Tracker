@@ -86,121 +86,178 @@ Each scenario shows the request, expected result, and notes for assertions.
 ### 2. Authentication
 - Happy: request with valid Basic Auth credentials (set in Authorization tab) → request succeeds.
 - Bad credentials: wrong username/password → 401 Unauthorized.
-- Missing credentials: no Authorization header → 401 Unauthorized for protected endpoints.
+# Postman Testing Guide — SkillBridge API (Updated)
 
-### 3. User lifecycle
-1. Create: `POST {{baseUrl}}/auth/register` (or admin create)
-   - Expect 201 + `userId` saved.
-2. Read: `GET {{baseUrl}}/users/{{userId}}`
-   - Expect 200 with correct fields.
-3. Update: `PUT {{baseUrl}}/users/{{userId}}` with modified payload
-   - Expect 200 and returned resource shows changes.
-4. Delete: `DELETE {{baseUrl}}/users/{{userId}}`
-   - Expect 204 or 200; subsequent GET → 404.
+This guide covers manual Postman test scenarios for the current SkillBridge backend (HTTP Basic Auth, MariaDB). The backend listens at `http://localhost:8080` and most API routes use the `/api` prefix (both `/auth/*` and `/api/auth/*` are accepted).
 
-Negative flows:
-- Create user with existing email → expected 409 or validation error.
-- Unauthenticated access to protected endpoints → 401.
-
-### 4. Jobs (Admin)
-- Create job (admin): `POST {{baseUrl}}/jobs` with title/description → save `jobId`.
-- List jobs: `GET {{baseUrl}}/jobs` → 200 and includes created job.
-- Get job: `GET {{baseUrl}}/jobs/{{jobId}}` → 200.
-- Update: `PUT {{baseUrl}}/jobs/{{jobId}}` → 200 and assert changes.
-- Delete/archive: `DELETE {{baseUrl}}/jobs/{{jobId}}` → 204 and GET → 404.
-
-Edge cases:
-- Create job with missing title → 400.
-- Non-admin tries to create job → 403 Forbidden.
-
-### 5. Applications (Candidate)
-- Apply: `POST {{baseUrl}}/applications` body includes `jobId`, `applicantId`, resume link.
-  - Save `applicationId`.
-- Get application: `GET {{baseUrl}}/applications/{{applicationId}}` → 200.
-- Update status (recruiter/admin): `PATCH {{baseUrl}}/applications/{{applicationId}}/status` with `{ "status":"INTERVIEWING" }` → 200.
-
-Negative:
-- Apply for invalid job id → 404.
-- Duplicate apply → 409 if enforced.
-
-### 6. Interview rounds
-- Create: `POST {{baseUrl}}/interviews` with `applicationId`, `roundType`, `scheduledAt`.
-- Update result: `PATCH {{baseUrl}}/interviews/{{id}}/result` → set PASS/FAIL.
-- Validate scheduled date cannot be past (400) if validation exists.
-
-### 7. Role & permission checks
-- With candidate token, request admin-only endpoint → expect 403.
-- With admin token, call candidate-only actions → expect 200.
-- Test refreshed tokens or expired tokens if you can shorten expiration locally.
-
-### 8. Security & Basic Auth tests
-- Wrong credentials: set incorrect `{{username}}`/`{{password}}` → 401.
-- No credentials: remove Authorization header → 401 for protected endpoints.
-- Ensure admin-only endpoints return 403 for non-admin credentials.
+Use this guide to run functional, negative, authorization, and lifecycle tests.
 
 ---
 
-## Postman Tests (assertions)
-Use Postman Tests to verify responses automatically.
+## Quick Setup
 
-pm.test('Has token', () => pm.expect(body.token || body.accessToken).to.be.a('string'));
-Examples:
-- Status code check:
-```javascript
-pm.test('Status is 200', () => pm.response.to.have.status(200));
+1. Start the backend (from workspace root):
+
+```bash
+cd skillbridge-backend
+mvn -DskipTests spring-boot:run
 ```
-- Save returned IDs:
-```javascript
-const res = pm.response.json();
-if (res.id) pm.environment.set('jobId', res.id);
+
+2. Start the frontend (optional):
+
+```bash
+cd skillbridge-frontend
+npm install   # first time only
+npm run dev
 ```
+
+3. In Postman create an Environment `SkillBridge (Local)` with variables:
+- `baseUrl` = `http://localhost:8080/api`
+- `username` = (user email for Basic Auth)
+- `password` = (user password)
+- `userId`, `jobId`, `applicationId` (empty placeholders)
 
 ---
 
-## Test Data Flow & Cleanup
-- Recommended order (create then read/update then delete): users → jobs → applications → interviews.
-- Always delete created data after tests to keep the dev DB clean; create a `Cleanup` folder in Postman to run delete requests that ignore 404.
-- Cleanup test script snippet (ignore 404):
+## Authentication Notes (current behavior)
+
+- The backend uses HTTP Basic Authentication for protected endpoints. Include `Authorization: Basic <base64(email:password)>` for protected requests.
+- `POST /auth/register` and `POST /auth/login` (and their `/api/auth/*` equivalents) are intended to be public; they accept JSON bodies and do not require the Basic header.
+- The `login` endpoint returns basic user info (no JWT). Your client should store the user's credentials or email/password and use Basic Auth for subsequent requests.
+
+Test credentials (from `schema.sql`):
+- App test user: `testuser@example.com` / `Password123!`
+- DB user (JDBC): `skillbridge_user` / `SkillBridge@123` (used in `application.properties`)
+
+---
+
+## Common Postman Setup
+
+1. Use `{{baseUrl}}` for request URLs.
+2. For protected endpoints, set `Authorization` → Type: `Basic Auth` and use `{{username}}` and `{{password}}`.
+3. For `register` and `login` calls, use raw JSON body (no Authorization header required).
+
+Pre-request script (optional) to add Basic header manually:
+
 ```javascript
-if (![200,204,404].includes(pm.response.code)) {
-  throw new Error('Cleanup failed with ' + pm.response.code);
+const u = pm.environment.get('username');
+const p = pm.environment.get('password');
+if (u && p) {
+  pm.request.headers.upsert({ key: 'Authorization', value: 'Basic ' + btoa(u + ':' + p) });
 }
 ```
 
 ---
 
-## Running Collections (Runner / Newman)
-- Run selected folders in Postman Runner using your environment and iteration count.
-- Newman CLI:
-```bash
-newman run postman_collection.json -e postman_environment.json --delay-request 100
+## Useful Endpoints & Examples
+
+Register (no Authorization header required):
+
+```http
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "newuser@example.com",
+  "password": "SecurePass123!",
+  "confirmPassword": "SecurePass123!"
+}
 ```
-- Use CI to run smoke tests on PRs; keep destructive tests off shared environments.
+
+Login (no Authorization header required):
+
+```http
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com",
+  "password": "Password123!"
+}
+```
+
+Protected request example (use Basic Auth in Authorization tab):
+
+```http
+GET {{baseUrl}}/applications
+Authorization: Basic <base64(email:password)>
+```
+
+Curl examples:
+
+```bash
+# Register
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"uniqueuser@example.com","password":"SecurePass123!","confirmPassword":"SecurePass123!"}'
+
+# Login
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"testuser@example.com","password":"Password123!"}'
+
+# Protected (list applications)
+curl -X GET http://localhost:8080/api/applications \
+  -H "Authorization: Basic $(echo -n 'testuser@example.com:Password123!' | base64)"
+```
 
 ---
 
-## Troubleshooting
-- 401 on `/auth/register`: endpoint protected. Use admin token or update security config.
-- 403 on admin endpoints: ensure token belongs to an admin user.
-- 500 or unexpected error: open backend logs (terminal running backend) and paste stacktrace for debugging.
-- Token not saved: check Tests script and that response body is JSON with token field.
+## Test Scenarios (condensed)
+
+- Health: `GET {{baseUrl}}/health` → 200
+- Register: valid data → 201 (or 200) / duplicate email → 409 (currently returns 500 in this build)
+- Login: valid credentials → 200 + user info; invalid → 401
+- Protected endpoints: require Basic Auth → 200; missing/invalid → 401
+- CRUD flows for users, jobs, applications, interview rounds as described in original guide — use Basic Auth where required
 
 ---
 
-## Quick checklist for manual test session
-1. Start backend and confirm `{{baseUrl}}` reachable.
-2. Login as admin → save `authToken`.
-3. Create user (if needed) → save `userId`.
-4. Create job as admin → save `jobId`.
-5. Switch to candidate token if testing candidate flows.
-6. Create application → save `applicationId`.
-7. Create interview rounds and record results.
-8. Run cleanup.
+## Database / Schema
+
+The workspace contains `schema.sql` which creates:
+- Database: `skillbridge_db`
+- Tables: `users`, `job_applications`, `interview_rounds`
+- App user: `skillbridge_user` / `SkillBridge@123` (granted privileges)
+
+Run the script from a MySQL/MariaDB client:
+
+```sql
+SOURCE schema.sql;
+```
+
+Verify:
+
+```sql
+USE skillbridge_db;
+SELECT * FROM users WHERE email = 'testuser@example.com';
+```
+
+If you get `Email already exists` on register, remove the existing row or use a different email:
+
+```sql
+DELETE FROM users WHERE email = 'newuser@example.com';
+```
 
 ---
 
-If you want, I can also:
-- Add a ready-to-import `postman_collection.json` and `postman_environment.json` to this workspace, or
-- Patch your existing `postman_collection.json` to include login/register/jobs/applications examples.
+## Troubleshooting & Notes
 
-Tell me which option you prefer and I will create the files.
+- 401 on register/login: Check the network request in browser DevTools — ensure `Authorization` header is NOT being sent for the register/login POST if you expect them public.
+- Duplicate-email error returns 500 in current backend; semantically it should be 409. You can check the DB to confirm existence before reattempting.
+- CORS: The backend now allows origins `localhost:3000/3001/5173` — if your frontend runs on a different host add it to the backend `CorsConfigurationSource` in `SecurityConfig.java`.
+- DB connectivity: If the app reports missing DB or tables, run `schema.sql` and verify `application.properties` points to the correct DB and user.
+
+---
+
+## Quick Checklist
+
+1. Start DB (MariaDB/MySQL) and run `schema.sql` if needed
+2. Start backend: `mvn -DskipTests spring-boot:run`
+3. Start frontend (optional): `npm run dev` and open the landing page
+4. Use Postman: register/login (no auth header) → use Basic Auth for protected endpoints
+5. Inspect backend logs on errors and paste stacktrace for help
+
+---
+
+If you want, I can also add a ready-to-import `postman_collection.json` and `postman_environment.json` for quick execution — tell me and I will generate them.
