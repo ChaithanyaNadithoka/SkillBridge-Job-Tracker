@@ -18,7 +18,7 @@ A full-stack web application for tracking job applications, interview rounds, an
 
 ## Features
 
-- **User Authentication**: Secure JWT-based authentication
+- **User Authentication**: HTTP Basic Authentication with BCrypt password encoding
 - **Job Application Management**: CRUD operations for job applications
 - **Interview Tracking**: Track interview rounds with notes and results
 - **Dashboard Analytics**: View statistics about applications and outcomes
@@ -32,9 +32,9 @@ A full-stack web application for tracking job applications, interview rounds, an
 ### Backend
 - Java 17
 - Spring Boot 3.2.0
-- Spring Security with JWT (JJWT 0.12.3)
+- Spring Security with HTTP Basic Authentication
 - Spring Data JPA
-- MySQL Database
+- MariaDB 3.1.4 JDBC Driver
 - Maven
 - Lombok
 - JUnit 5, Mockito, JaCoCo
@@ -118,7 +118,7 @@ SkillBridge Workspace/
 ### For Backend
 - Java 17 JDK
 - Maven 3.8+
-- MySQL 8.0+
+- MariaDB 10.3+ or MySQL 8.0+
 
 ### For Frontend
 - Node.js 18+
@@ -169,9 +169,16 @@ cd skillbridge-backend
 ```
 
 ### 2. Update Database Configuration (Optional)
-If your MySQL credentials differ, update `src/main/resources/application.properties`:
+If your database credentials differ, update `src/main/resources/application.properties`:
 ```properties
+# For MySQL:
 spring.datasource.url=jdbc:mysql://localhost:3306/skillbridge_db
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+# For MariaDB (default):
+spring.datasource.url=jdbc:mariadb://localhost:3306/skillbridge_db
+spring.datasource.driver-class-name=org.mariadb.jdbc.Driver
+
 spring.datasource.username=skillbridge_user
 spring.datasource.password=SkillBridge@123
 spring.jpa.hibernate.ddl-auto=update
@@ -241,27 +248,25 @@ Content-Type: application/json
 "User registered successfully"
 ```
 
-#### Login
+#### Login (with Basic Auth)
+Send credentials using HTTP Basic Authentication. Postman will automatically encode them:
 ```http
 POST /auth/login
+Authorization: Basic base64(email:password)
 Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "password": "Password123!"
-}
 ```
 
 **Response (200 OK):**
 ```json
 {
-  "token": "eyJhbGciOiJIUzUxMiJ9...",
-  "type": "Bearer",
+  "token": null,
   "userId": 1,
   "email": "user@example.com",
   "role": "USER"
 }
 ```
+
+**Note:** With HTTP Basic Auth, no JWT token is issued. User credentials are validated on each request using the `Authorization: Basic` header.
 
 ### Job Applications
 
@@ -476,16 +481,40 @@ mvn jacoco:report
 - FAILED
 - PENDING
 
-## Postman Collection
+## Postman Testing & Collection
 
-A Postman collection is provided (`postman_collection.json`) with all API endpoints and sample requests.
+A Postman collection (`postman_collection.json`) and detailed testing guide (`Postman_Testing_Guide.md`) are provided.
 
-### Import Collection
-1. Open Postman
-2. Click "Import" → "Upload Files"
-3. Select `postman_collection.json`
-4. Use the "Login" request to obtain a token
-5. Token will be automatically saved to `{{token}}` variable
+### Postman Setup with Basic Auth
+
+1. **Create Environment**: `SkillBridge (Local)`
+   - `baseUrl` = `http://localhost:8080/api`
+   - `username` = (admin or test user email, e.g., `admin@example.com`)
+   - `password` = (user password)
+   - `userId`, `jobId`, `applicationId` = (empty, will be populated by test scripts)
+
+2. **Configure Basic Auth** (Choose one):
+   - **Collection-level**: Select Collection → Authorization tab → Type: `Basic Auth` → Username: `{{username}}` → Password: `{{password}}`
+   - **Per-request basis**: Same steps in individual request Authorization tab
+
+3. **Test Scenarios**: Refer to `Postman_Testing_Guide.md` for:
+   - Authentication flows and credential validation
+   - Full CRUD operations for users, jobs, applications, interviews
+   - Role-based access control (admin vs. candidate)
+   - Error handling and edge cases
+   - Data lifecycle and cleanup procedures
+   - Newman CLI automation for continuous integration
+
+### Example Postman Pre-request Script (Optional)
+For manual header generation (if not using built-in Basic Auth):
+```javascript
+const u = pm.environment.get('username');
+const p = pm.environment.get('password');
+if (u && p) {
+  const headerValue = 'Basic ' + btoa(u + ':' + p);
+  pm.request.headers.add({ key: 'Authorization', value: headerValue });
+}
+```
 
 ## Error Responses
 
@@ -511,23 +540,26 @@ All errors follow this format:
 
 ## Security Features
 
-- **JWT Authentication**: Stateless token-based auth
-- **BCrypt Password Encoding**: Secure password hashing
+- **HTTP Basic Authentication**: User credentials validated on each request via `Authorization: Basic` header
+- **BCrypt Password Encoding**: Secure password hashing with strength 12
 - **CORS Configuration**: Enabled for frontend integration
-- **Role-Based Access Control**: USER and ADMIN roles
-- **Token Expiration**: 24 hours default
+- **Role-Based Access Control**: USER and ADMIN roles via `@PreAuthorize` annotations
+- **Spring Security**: Method-level security with `@EnableMethodSecurity`
 - **Protected Routes**: Frontend route protection
+- **Stateless Sessions**: STATELESS session policy for REST API
 
 ## Development Notes
 
 ### Key Technologies Used
 
-1. **Spring Boot 3.x**: Modern Java framework
-2. **Spring Security 6**: Authentication & authorization
-3. **JJWT 0.12.3**: JWT token handling
-4. **Material UI**: Professional UI components
+1. **Spring Boot 3.2.0**: Modern Java framework
+2. **Spring Security 6**: HTTP Basic Authentication & method-level security
+3. **MariaDB 10.3+**: Relational database with JDBC driver 3.1.4
+4. **Material UI 5**: Professional UI components
 5. **Vite**: Fast build tool for frontend
 6. **React Router 6**: Client-side routing
+7. **Lombok**: Annotation-based boilerplate reduction
+8. **BCrypt**: Secure password hashing
 
 ### Layered Architecture
 
@@ -617,7 +649,43 @@ For issues or questions:
 
 SkillBridge © 2025. All rights reserved.
 
+## Recent Changes (February 2026 - v1.1.0 Release)
+
+### Authentication System Migration
+- ✅ **Migrated from JWT to HTTP Basic Authentication** — Simpler, stateless credential validation per request
+- ✅ **Implemented `CustomUserDetailsService`** — Loads user credentials from `UserRepository` for Spring Security
+- ✅ **Updated `SecurityConfig`** — HTTP Basic auth enabled; removed JWT custom filter chain
+- ✅ **Updated `AuthService`** — Login endpoint now validates credentials without generating tokens
+- ✅ **Updated Tests** — `AuthServiceTest` adjusted to match new constructor
+
+### Database & Driver Updates
+- ✅ **Switched to MariaDB JDBC Driver (3.1.4)** — Better compatibility and performance over MySQL connector
+- ✅ **Updated `application.properties`** — Changed URL pattern to `jdbc:mariadb://` and driver class
+- ✅ **Tested both MySQL and MariaDB** — Application works with either database
+
+### Documentation
+- ✅ **Created `Postman_Testing_Guide.md`** — Comprehensive manual testing guide with all scenarios
+- ✅ **Updated API endpoint documentation** — Examples now show Basic Auth headers instead of Bearer tokens
+- ✅ **Added Postman environment setup** — Clear instructions for environment variables and Basic Auth configuration
+- ✅ **Updated README** — Reflected all architectural changes
+
+### Build & Deployment Status
+- ✅ **Backend compiles successfully** — No compilation errors (2 deprecation warnings are expected for Spring 6)
+- ✅ **All tests passing** — Unit tests updated and passing
+- ✅ **Production-ready JAR** — Located at `target/skillbridge-backend-1.0.0.jar`
+- ✅ **Backend running on localhost:8080** — MariaDB connection verified
+
+### Files Modified
+- `src/main/java/com/skillbridge/config/SecurityConfig.java` — HTTP Basic config
+- `src/main/java/com/skillbridge/service/AuthService.java` — Removed JWT generation
+- `src/main/java/com/skillbridge/service/CustomUserDetailsService.java` — NEW: UserDetailsService implementation
+- `src/main/resources/application.properties` — MariaDB driver config
+- `src/test/java/com/skillbridge/AuthServiceTest.java` — Updated constructor call
+- `README.md` — Documentation updates (THIS FILE)
+- `Postman_Testing_Guide.md` — NEW: Complete Postman testing manual
+
 ---
 
-**Last Updated**: February 14, 2025
-**Version**: 1.0.0
+**Last Updated**: February 17, 2026
+**Version**: 1.1.0 (HTTP Basic Authentication)
+**Status**: ✅ Production Ready
