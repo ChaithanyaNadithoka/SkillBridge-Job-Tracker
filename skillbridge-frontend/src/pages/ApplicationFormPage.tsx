@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Paper, TextField, Button, Typography, Alert } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '../components/Layout';
@@ -14,6 +14,32 @@ const ApplicationFormPage: React.FC = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
+    useEffect(() => {
+        const loadApplication = async () => {
+            if (!id) return;
+            setLoading(true);
+            setError('');
+            try {
+                const app = await applicationService.getApplicationById(parseInt(id));
+                setCompanyName(app.companyName || '');
+                setJobRole(app.jobRole || '');
+                setStatus(app.status || 'APPLIED');
+                // normalize appliedDate to YYYY-MM-DD if ISO
+                if (app.appliedDate) {
+                    const d = app.appliedDate.toString();
+                    setAppliedDate(d.length >= 10 ? d.substring(0, 10) : d);
+                } else {
+                    setAppliedDate('');
+                }
+            } catch (err: any) {
+                setError(err.response?.data?.message || 'Failed to load application');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadApplication();
+    }, [id]);
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
