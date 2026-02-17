@@ -25,6 +25,7 @@
         <sonar.projectKey>skillbridge-backend</sonar.projectKey>
         <sonar.host.url>http://localhost:9000</sonar.host.url>
         <sonar.login>sqp_24a40db263adb8355d7bdbe17f633946dc845d7e</sonar.login>
+        <sonar.coverage.jacoco.xmlReportPaths>target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
     </properties>
 
     <dependencies>
